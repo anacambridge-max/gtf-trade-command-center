@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   patch-modal:
-    if: ${{ !contains(github.event.head_commit.message, '[journal-modal-fixed]') }}
+    if: ${{ !contains(github.event.head_commit.message, '[journal-modal-fixed-v2]') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -20,23 +20,15 @@ jobs:
           p = Path('index.html')
           s = p.read_text(encoding='utf-8')
 
-          old = '<div id="modal" class="modal hidden"><div><h2 id="modalTitle">Journal</h2><div class="form"><label>Exit Price<input id="mExit" type="number"></label><label>Status<select id="mStatus"><option>WIN</option><option>LOSS</option><option>OPEN</option></select></label><label>Notes<input id="mNotes"></label><label>Quantity<input id="mQty" type="number"></label></div><div style="margin-top:12px;text-align:right"><button id="mClose">Cancel</button><button class="primary" id="mSave">Save</button></div></div></div>'
-          new = '<div id="modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modalTitle"><div><div style="display:flex;align-items:center;justify-content:space-between;gap:10px"><h2 id="modalTitle">Journal</h2><button id="mX" type="button" aria-label="Close journal">✕</button></div><div class="form"><label>Exit Price<input id="mExit" type="number"></label><label>Status<select id="mStatus"><option>WIN</option><option>LOSS</option><option>OPEN</option></select></label><label>Notes<input id="mNotes"></label><label>Quantity<input id="mQty" type="number"></label></div><div style="margin-top:12px;text-align:right"><button id="mClose" type="button">Cancel</button><button class="primary" id="mSave" type="button">Save</button></div></div></div>'
+          # The modal CSS was overriding .hidden because .modal{display:flex}
+          # appeared after .hidden{display:none}. Make the hidden state explicit.
+          if '.modal.hidden{display:none!important}' not in s:
+              s = s.replace('</style>', '.modal.hidden{display:none!important}</style>', 1)
 
-          if old in s and 'data-journal-modal-fixed="1"' not in s:
-              s = s.replace(old, new + '<span data-journal-modal-fixed="1" hidden></span>', 1)
+          # Remove the obsolete duplicate openModal declaration if present.
+          old_open = "function openModal(){if(!selected)return;const q=+$('rQty').textContent.replace(/,/g,'')||0;$('mQty').value=q;$('mExit').value=selected.target;$('modal').classList.remove('hidden')}"
+          s = s.replace(old_open, '', 1)
 
-          old_js = "$('scan').onclick=scan;$('refresh').onclick=quotes;$('search').oninput=render;"
-          new_js = "function closeModal(){const m=$('modal');if(m)m.classList.add('hidden');document.body.style.overflow='';}function openModal(){if(!selected)return;const q=+$('rQty').textContent.replace(/,/g,'')||0;$('mQty').value=q;$('mExit').value=selected.target;$('mNotes').value='';$('mStatus').value='OPEN';$('modal').classList.remove('hidden');document.body.style.overflow='hidden';setTimeout(()=>$('mExit').focus(),0)}$('scan').onclick=scan;$('refresh').onclick=quotes;$('search').oninput=render;"
-          if old_js in s and 'function closeModal()' not in s:
-              s = s.replace(old_js, new_js, 1)
-
-          old_close = "$('journalBtn').onclick=openModal;$('mClose').onclick=()=>$('modal').classList.add('hidden');"
-          new_close = "$('journalBtn').onclick=openModal;$('mClose').onclick=closeModal;$('mX').onclick=closeModal;$('modal').addEventListener('click',e=>{if(e.target===$('modal'))closeModal()});document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('modal').classList.contains('hidden'))closeModal()});"
-          if old_close in s:
-              s = s.replace(old_close, new_close, 1)
-
-          s = s.replace("$('modal').classList.add('hidden');$('mNotes').value='';loadJournal()", "closeModal();$('mNotes').value='';loadJournal()")
           p.write_text(s, encoding='utf-8')
           PY
       - name: Commit patch
@@ -45,8 +37,8 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html
           if git diff --cached --quiet; then
-            echo "No modal patch needed"
+            echo "No modal visibility patch needed"
           else
-            git commit -m "Fix journal modal close behavior [journal-modal-fixed]"
+            git commit -m "Fix journal modal visibility [journal-modal-fixed-v2]"
             git push
           fi
