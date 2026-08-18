@@ -31,9 +31,12 @@ jobs:
           if old_js in s and 'function closeModal()' not in s:
               s = s.replace(old_js, new_js, 1)
 
-          s = s.replace("$('journalBtn').onclick=openModal;$('mClose').onclick=()=>\$('modal').classList.add('hidden');", "$('journalBtn').onclick=openModal;$('mClose').onclick=closeModal;$('mX').onclick=closeModal;$('modal').addEventListener('click',e=>{if(e.target===$('modal'))closeModal()});document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('modal').classList.contains('hidden'))closeModal()});")
-          s = s.replace("$('modal').classList.add('hidden');$('mNotes').value='';loadJournal()", "closeModal();$('mNotes').value='';loadJournal()")
+          old_close = "$('journalBtn').onclick=openModal;$('mClose').onclick=()=>$('modal').classList.add('hidden');"
+          new_close = "$('journalBtn').onclick=openModal;$('mClose').onclick=closeModal;$('mX').onclick=closeModal;$('modal').addEventListener('click',e=>{if(e.target===$('modal'))closeModal()});document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('modal').classList.contains('hidden'))closeModal()});"
+          if old_close in s:
+              s = s.replace(old_close, new_close, 1)
 
+          s = s.replace("$('modal').classList.add('hidden');$('mNotes').value='';loadJournal()", "closeModal();$('mNotes').value='';loadJournal()")
           p.write_text(s, encoding='utf-8')
           PY
       - name: Commit patch
